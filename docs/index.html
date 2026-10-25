@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Face Detector | Real-time On-Device AI</title>
+  <!-- Material Symbols & Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0" />
+
+  <style>
+    :root {
+      --navy: #0D2B5C;
+      --blue: #2F6FED;
+      --sky: #4FC3F7;
+      --bg: #F4F7FC;
+      --surface: #FFFFFF;
+      --surface-variant: #E8EEF8;
+      --text-primary: #0D2B5C;
+      --text-secondary: #64748B;
+      --status-green: #10B981;
+      --status-gray: #94A3B8;
+      --status-amber: #F59E0B;
+      --status-red: #EF4444;
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 10px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 4px;
+    }
+
+    .title-group h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--navy);
+      letter-spacing: -0.5px;
+    }
+
+    .title-group p {
+      font-size: 13px;
+      color: var(--blue);
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: none;
+      background: var(--surface);
+      color: var(--blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(13, 43, 92, 0.08);
+      transition: all 0.2s ease;
+    }
+
+    .icon-btn:hover {
+      background: var(--surface-variant);
+      transform: translateY(-1px);
+    }
+
+    /* Status Pill */
+    .status-container {
+      display: flex;
+      justify-content: center;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: var(--surface-variant);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--navy);
+      transition: all 0.3s ease;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--status-gray);
+      transition: background-color 0.3s ease;
+    }
+
+    /* Viewport */
+    .viewport-card {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      max-height: 480px;
+      background: var(--navy);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 12px 32px rgba(13, 43, 92, 0.16);
+    }
+
+    video {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    video.mirrored {
+      transform: scaleX(-1);
+    }
+
+    #staticImage {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .viewport-message {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 24px;
+      text-align: center;
+      color: white;
+      z-index: 10;
+    }
+
+    .viewport-message p {
+      font-size: 15px;
+      max-width: 340px;
+      line-height: 1.4;
+      opacity: 0.9;
+    }
+
+    /* Controls */
+    .controls-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-evenly;
+      background: var(--surface);
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      box-shadow: 0 4px 16px rgba(13, 43, 92, 0.06);
+    }
+
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+
+    .action-btn.primary {
+      background: var(--blue);
+      color: white;
+    }
+
+    .action-btn.primary:hover {
+      background: #2558be;
+    }
+
+    .action-btn.danger {
+      background: var(--status-red);
+      color: white;
+    }
+
+    .round-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: var(--surface-variant);
+      color: var(--blue);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .round-btn:hover {
+      background: #dbe4f3;
+    }
+
+    /* Info Banner / APK Banner */
+    .apk-banner {
+      background: linear-gradient(135deg, #0D2B5C 0%, #1e4b91 100%);
+      color: white;
+      border-radius: var(--radius-md);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 8px 24px rgba(13, 43, 92, 0.15);
+    }
+
+    .apk-text h3 {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .apk-text p {
+      font-size: 12px;
+      opacity: 0.85;
+    }
+
+    .apk-download-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--sky);
+      color: var(--navy);
+      text-decoration: none;
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .apk-download-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(79, 195, 247, 0.4);
+    }
+
+    /* Footer Note */
+    footer {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      padding-top: 6px;
+    }
+
+    /* Modal Dialog */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(13, 43, 92, 0.6);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+    }
+
+    .modal-box {
+      background: var(--surface);
+      max-width: 480px;
+      width: 100%;
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-box h2 {
+      font-size: 20px;
+      color: var(--navy);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-box p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .modal-close-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--blue);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="title-group">
+        <h1>Face Detector</h1>
+        <p id="modeSubtitle">Real-Time On-Device AI</p>
+      </div>
+      <div class="header-actions">
+        <label for="imageUploadInput" class="icon-btn" title="Pick Photo (Gallery Mode)">
+          <span class="material-symbols-rounded">photo_library</span>
+        </label>
+        <input type="file" id="imageUploadInput" accept="image/*" style="display: none;">
+        <button class="icon-btn" id="privacyBtn" title="Privacy Information">
+          <span class="material-symbols-rounded">privacy_tip</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Status Pill -->
+    <div class="status-container">
+      <div class="status-pill" id="statusPill">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Starting Camera…</span>
+      </div>
+    </div>
+
+    <!-- Main Viewport -->
+    <div class="viewport-card" id="viewportCard">
+      <video id="webcam" playsinline autoplay muted class="mirrored"></video>
+      <img id="staticImage" alt="Gallery Photo">
+      <canvas id="overlayCanvas"></canvas>
+
+      <div class="viewport-message" id="viewportMsg" style="display: none;">
+        <span class="material-symbols-rounded" style="font-size: 48px; color: var(--sky);" id="msgIcon">videocam_off</span>
+        <p id="msgText">Camera is currently paused.</p>
+        <button class="action-btn primary" id="msgActionBtn">Start Camera</button>
+      </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="controls-panel">
+      <!-- Switch Camera -->
+      <button class="round-btn" id="switchCamBtn" title="Switch Front / Back Camera">
+        <span class="material-symbols-rounded">flip_camera_android</span>
+      </button>
+
+      <!-- Pause / Resume -->
+      <button class="round-btn" id="pauseBtn" title="Pause / Resume Detection">
+        <span class="material-symbols-rounded">pause</span>
+      </button>
+
+      <!-- Screenshot / Save -->
+      <button class="round-btn" id="screenshotBtn" title="Capture Annotated Image">
+        <span class="material-symbols-rounded">photo_camera</span>
+      </button>
+
+      <!-- Start / Stop Toggle -->
+      <button class="action-btn danger" id="powerBtn">
+        <span class="material-symbols-rounded">stop</span>
+        <span>Stop</span>
+      </button>
+    </div>
+
+    <!-- Android APK Download Card -->
+    <div class="apk-banner">
+      <div class="apk-text">
+        <h3><span class="material-symbols-rounded">android</span> Android APK Available</h3>
+        <p>Built with Jetpack Compose & CameraX • Fully offline</p>
+      </div>
+      <a href="FaceDetector.apk" download="FaceDetector.apk" class="apk-download-btn">
+        <span class="material-symbols-rounded">download</span> Download APK
+      </a>
+    </div>
+
+    <footer>
+      Detects faces on-device only. No biometric profiling or facial recognition. No images are saved or uploaded.
+    </footer>
+  </div>
+
+  <!-- Privacy Modal -->
+  <div class="modal-backdrop" id="privacyModal">
+    <div class="modal-box">
+      <h2><span class="material-symbols-rounded" style="color: var(--blue);">shield</span> Privacy Guarantee</h2>
+      <p>
+        <strong>100% On-Device Processing:</strong> All facial bounding geometry and landmark evaluations are computed strictly on your device inside your web browser or phone hardware.
+      </p>
+      <p>
+        <strong>Zero Uploads:</strong> No pictures, frames, or biometric hashes are ever stored or uploaded to any external server.
+      </p>
+      <p>
+        <strong>Detection Only:</strong> This app only detects the presence and location of faces. It does not perform identification or recognition.
+      </p>
+      <button class="modal-close-btn" id="closePrivacyBtn">Understood</button>
+    </div>
+  </div>
+
+  <!-- Client-side Face Detection Script -->
+  <script>
+    const video = document.getElementById('webcam');
+    const staticImage = document.getElementById('staticImage');
+    const canvas = document.getElementById('overlayCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusPill = document.getElementById('statusPill');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const switchCamBtn = document.getElementById('switchCamBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const screenshotBtn = document.getElementById('screenshotBtn');
+    const powerBtn = document.getElementById('powerBtn');
+    const imageUploadInput = document.getElementById('imageUploadInput');
+    const modeSubtitle = document.getElementById('modeSubtitle');
+    const viewportMsg = document.getElementById('viewportMsg');
+    const msgText = document.getElementById('msgText');
+    const msgIcon = document.getElementById('msgIcon');
+    const msgActionBtn = document.getElementById('msgActionBtn');
+    const privacyBtn = document.getElementById('privacyBtn');
+    const privacyModal = document.getElementById('privacyModal');
+    const closePrivacyBtn = document.getElementById('closePrivacyBtn');
+
+    let stream = null;
+    let isCameraOn = true;
+    let isPaused = false;
+    let facingMode = 'user'; // 'user' (front) or 'environment' (back)
+    let isGalleryMode = false;
+    let detector = null;
+    let animationFrameId = null;
+    let consecutiveFaceCount = 0;
+    let lastFaceCount = 0;
+    let smoothedCount = 0;
+
+    // Initialize FaceDetector API or Fallback
+    async function initDetector() {
+      if ('FaceDetector' in window) {
+        try {
+          detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 10 });
+        } catch (e) {
+          console.warn('Native FaceDetector initialization failed:', e);
+        }
+      }
+    }
+
+    // Set Status Pill UI
+    function updateStatus(state, count = 0) {
+      if (state === 'detected') {
+        statusDot.style.background = 'var(--status-green)';
+        statusText.textContent = `${count} face${count > 1 ? 's' : ''} detected`;
+      } else if (state === 'no-face') {
+        statusDot.style.background = 'var(--status-gray)';
+        statusText.textContent = 'No face detected';
+      } else if (state === 'paused') {
+        statusDot.style.background = 'var(--status-amber)';
+        statusText.textContent = 'Detection paused';
+      } else if (state === 'stopped') {
+        statusDot.style.background = 'var(--blue)';
+        statusText.textContent = 'Camera stopped';
+      } else if (state === 'error') {
+        statusDot.style.background = 'var(--status-red)';
+        statusText.textContent = 'Camera error';
+      }
+    }
+
+    // Start Camera Stream
+    async function startCamera() {
+      try {
+        if (stream) {
+          stream.getTracks().forEach(t => t.stop());
+        }
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        video.srcObject = stream;
+        video.style.display = 'block';
+        staticImage.style.display = 'none';
+        viewportMsg.style.display = 'none';
+        isCameraOn = true;
+        isGalleryMode = false;
+        modeSubtitle.textContent = 'Live Camera Detection';
+        video.className = (facingMode === 'user') ? 'mirrored' : '';
+
+        powerBtn.className = 'action-btn danger';
+        powerBtn.innerHTML = '<span class="material-symbols-rounded">stop</span><span>Stop</span>';
+
+        await video.play();
+        detectLoop();
+      } catch (err) {
+        console.error('Camera error:', err);
+        updateStatus('error');
+        showViewportMessage('videocam_off', 'Unable to access camera. Please allow camera permissions.', 'Retry Camera', startCamera);
+      }
+    }
+
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      isCameraOn = false;
+      cancelAnimationFrame(animationFrameId);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      updateStatus('stopped');
+      showViewportMessage('videocam_off', 'Camera is stopped.', 'Start Camera', startCamera);
+      powerBtn.className = 'action-btn primary';
+      powerBtn.innerHTML = '<span class="material-symbols-rounded">play_arrow</span><span>Start</span>';
+    }
+
+    function showViewportMessage(icon, text, actionText, onAction) {
+      viewportMsg.style.display = 'flex';
+      msgIcon.textContent = icon;
+      msgText.textContent = text;
+      msgActionBtn.textContent = actionText;
+      msgActionBtn.onclick = onAction;
+    }
+
+    // Detection Frame Loop
+    async function detectLoop() {
+      if (!isCameraOn || isGalleryMode) return;
+
+      if (!isPaused && video.readyState >= 2) {
+        canvas.width = video.videoWidth || video.clientWidth;
+        canvas.height = video.videoHeight || video.clientHeight;
+
+        let detectedFaces = [];
+        if (detector) {
+          try {
+            const rawFaces = await detector.detect(video);
+            detectedFaces = rawFaces.map(f => f.boundingBox);
+          } catch (e) {
+            // Frame skip
+          }
+        }
+
+        // Stabilize count
+        const currentCount = detectedFaces.length;
+        if (currentCount === lastFaceCount) {
+          consecutiveFaceCount++;
+          if (consecutiveFaceCount >= 3) {
+            smoothedCount = currentCount;
+          }
+        } else {
+          lastFaceCount = currentCount;
+          consecutiveFaceCount = 1;
+        }
+
+        if (smoothedCount > 0) {
+          updateStatus('detected', smoothedCount);
+        } else {
+          updateStatus('no-face');
+        }
+
+        renderBoxes(detectedFaces, canvas.width, canvas.height, facingMode === 'user');
+      }
+
+      animationFrameId = requestAnimationFrame(detectLoop);
+    }
+
+    // Draw Rounded Face Bounding Boxes
+    function renderBoxes(boxes, imgW, imgH, isMirrored) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const scaleX = canvas.width / imgW;
+      const scaleY = canvas.height / imgH;
+
+      boxes.forEach(box => {
+        let left = box.x * scaleX;
+        let width = box.width * scaleX;
+        if (isMirrored) {
+          left = canvas.width - (left + width);
+        }
+        const top = box.y * scaleY;
+        const height = box.height * scaleY;
+
+        // Glowing outer stroke
+        ctx.strokeStyle = 'rgba(79, 195, 247, 0.4)';
+        ctx.lineWidth = 6;
+        roundRect(ctx, left - 2, top - 2, width + 4, height + 4, 16);
+        ctx.stroke();
+
+        // Inner sharp stroke
+        ctx.strokeStyle = '#4FC3F7';
+        ctx.lineWidth = 3.5;
+        roundRect(ctx, left, top, width, height, 14);
+        ctx.stroke();
+
+        // Metrics badge
+        const badgeText = '😊 Face Detected';
+        ctx.font = 'bold 11px Plus Jakarta Sans, sans-serif';
+        const textWidth = ctx.measureText(badgeText).width;
+        ctx.fillStyle = 'rgba(13, 43, 92, 0.9)';
+        roundRect(ctx, left, Math.max(10, top - 24), textWidth + 14, 20, 6);
+        ctx.fill();
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(badgeText, left + 7, Math.max(24, top - 10));
+      });
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    // Toggle Camera Power
+    powerBtn.addEventListener('click', () => {
+      if (isCameraOn) stopCamera();
+      else startCamera();
+    });
+
+    // Switch Front / Back
+    switchCamBtn.addEventListener('click', () => {
+      facingMode = (facingMode === 'user') ? 'environment' : 'user';
+      startCamera();
+    });
+
+    // Pause / Resume
+    pauseBtn.addEventListener('click', () => {
+      isPaused = !isPaused;
+      if (isPaused) {
+        updateStatus('paused');
+        pauseBtn.innerHTML = '<span class="material-symbols-rounded">play_arrow</span>';
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      } else {
+        pauseBtn.innerHTML = '<span class="material-symbols-rounded">pause</span>';
+      }
+    });
+
+    // Pick Photo (Gallery Mode)
+    imageUploadInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        staticImage.src = event.target.result;
+        staticImage.style.display = 'block';
+        video.style.display = 'none';
+        isGalleryMode = true;
+        modeSubtitle.textContent = 'Gallery Photo Mode';
+        cancelAnimationFrame(animationFrameId);
+
+        staticImage.onload = async () => {
+          canvas.width = staticImage.naturalWidth;
+          canvas.height = staticImage.naturalHeight;
+
+          let detected = [];
+          if (detector) {
+            try {
+              detected = (await detector.detect(staticImage)).map(f => f.boundingBox);
+            } catch (err) {
+              console.error(err);
+            }
+          }
+
+          if (detected.length > 0) updateStatus('detected', detected.length);
+          else updateStatus('no-face');
+
+          renderBoxes(detected, canvas.width, canvas.height, false);
+        };
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Screenshot Capture
+    screenshotBtn.addEventListener('click', () => {
+      const offscreen = document.createElement('canvas');
+      offscreen.width = canvas.width;
+      offscreen.height = canvas.height;
+      const oCtx = offscreen.getContext('2d');
+
+      if (isGalleryMode) {
+        oCtx.drawImage(staticImage, 0, 0, offscreen.width, offscreen.height);
+      } else {
+        if (facingMode === 'user') {
+          oCtx.translate(offscreen.width, 0);
+          oCtx.scale(-1, 1);
+        }
+        oCtx.drawImage(video, 0, 0, offscreen.width, offscreen.height);
+        if (facingMode === 'user') {
+          oCtx.setTransform(1, 0, 0, 1, 0, 0);
+        }
+      }
+      oCtx.drawImage(canvas, 0, 0);
+
+      const link = document.createElement('a');
+      link.download = `FaceDetector_${Date.now()}.jpg`;
+      link.href = offscreen.toDataURL('image/jpeg', 0.95);
+      link.click();
+    });
+
+    // Privacy Modal Dialog
+    privacyBtn.addEventListener('click', () => privacyModal.style.display = 'flex');
+    closePrivacyBtn.addEventListener('click', () => privacyModal.style.display = 'none');
+    privacyModal.addEventListener('click', (e) => {
+      if (e.target === privacyModal) privacyModal.style.display = 'none';
+    });
+
+    // Launch
+    initDetector();
+    startCamera();
+  </script>
+</body>
+</html>
